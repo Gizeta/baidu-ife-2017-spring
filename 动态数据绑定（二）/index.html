@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Document</title>
+</head>
+<body>
+    <textarea style="width:500px;height:300px;">let app1 = new Observer({
+         name: 'youngwind',
+         age: 25
+ });
+
+ app1.data.name = {
+         lastName: 'liang',
+         firstName: 'shaofeng'
+ };
+
+ app1.$watch('name.firstName', function(firstName) {
+        alert(`我的名字变了，现在是：${firstName}`);
+ });
+
+ app1.data.name.firstName = 'test';
+
+</textarea><button>eval一下</button>
+    <script>
+        const propWatchHash = Symbol('propWatchHash');
+
+        class Observer {
+            constructor(data) {
+                this.data = new Proxy(data, {
+                    get: (obj, prop) => {
+                        if (prop === propWatchHash)
+                            return this[propWatchHash];
+
+                        console.log(`你访问了 ${prop}`);
+                        if (obj[prop] instanceof Observer)
+                            return obj[prop].data;
+                        else
+                            return obj[prop];
+                    },
+                    set: (obj, prop, value) => {
+                        console.log(`你设置了 ${prop}，新的值为 ${value}`);
+
+                        if (this[propWatchHash][prop] != null) {
+                            this[propWatchHash][prop](value);
+                        }
+
+                        if (typeof value === "object")
+                            obj[prop] = new Observer(value);
+                        else
+                            obj[prop] = value;
+                    }
+                });
+                this[propWatchHash] = {};
+            }
+
+            $watch(prop, callback) {
+                let path = prop.split('.');
+                let target = this.data;
+                let i = 0;
+                while (i < path.length - 1) {
+                    target = target[path[i]];
+                    i++;
+                }
+                target[propWatchHash][path[i]] = callback;
+            }
+        }
+
+        window.onload = () => {
+            document.querySelector('button').onclick = () => {
+                eval(document.querySelector('textarea').value);
+            }
+        }
+    </script>
+</body>
+</html>
