@@ -55,7 +55,7 @@ app2.data.name.lastName = 'blablabla';
                         console.log(`你设置了 ${prop}，新的值为 ${value}`);
 
                         if (typeof value === "object")
-                            obj[prop] = new Observer(value, this);
+                            obj[prop] = new Observer(value, this, prop);
                         else
                             obj[prop] = value;
 
