@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Document</title>
+    <style>
+        /**/
+        label.radio-img input[type=radio] {
+            display: none;
+        }
+        label.radio-img span {
+            position: relative;
+            padding-left: 19px;
+        }
+        label.radio-img input[type=radio] ~ span::before {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            top: 50%;
+            left: 0px;
+            margin-top: -8px;
+            background-image: url('http://p1.bqimg.com/567571/99322cf8c3283e42.png');
+            background-size: 100px 50px;
+            background-position: 76px 40px;
+        }
+        label.radio-img input[type=radio]:checked ~ span::before {
+            background-position: 41px 40px;
+        }
+
+        /**/
+        label.chkbox-img input[type=checkbox] {
+            display: none;
+        }
+        label.chkbox-img span {
+            position: relative;
+            padding-left: 19px;
+        }
+        label.chkbox-img input[type=checkbox] ~ span::before {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            top: 50%;
+            left: 0px;
+            margin-top: -8px;
+            background-image: url('http://p1.bqimg.com/567571/99322cf8c3283e42.png');
+            background-size: 100px 50px;
+            background-position: 75px 18px;
+        }
+        label.chkbox-img input[type=checkbox]:checked ~ span::before {
+            background-position: 40px 19px;
+        }
+
+        /**/
+        label.radio-pseudo input[type=radio] {
+            display: none;
+        }
+        label.radio-pseudo span {
+            position: relative;
+            padding-left: 15px;
+        }
+        label.radio-pseudo input[type=radio] ~ span::before {
+            content: '';
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            top: 50%;
+            left: 0px;
+            margin-top: -6px;
+            border: 1px solid black;
+            border-radius: 50%;
+        }
+        label.radio-pseudo input[type=radio]:checked ~ span::before {
+            border-color: red;
+        }
+        label.radio-pseudo input[type=radio]:checked ~ span::after {
+            content: '';
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            top: 50%;
+            margin-top: -3px;
+            left: 3px;
+            border-radius: 50%;
+            background: red;
+        }
+        label.radio-pseudo input[type=radio]:disabled ~ span {
+            color: gray;
+        }
+        label.radio-pseudo input[type=radio]:disabled ~ span::before,
+        label.radio-pseudo:hover input[type=radio]:disabled ~ span::before {
+            border-color: gray;
+        }
+        label.radio-pseudo:hover input[type=radio] ~ span::before {
+            border-color: red;
+        }
+
+        /**/
+        label.chkbox-pseudo input[type=checkbox] {
+            display: none;
+        }
+        label.chkbox-pseudo span {
+            position: relative;
+            padding-left: 15px;
+        }
+        label.chkbox-pseudo input[type=checkbox] ~ span::before {
+            content: '';
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            top: 50%;
+            left: 0px;
+            margin-top: -6px;
+            border: 1px solid black;
+        }
+        label.chkbox-pseudo input[type=checkbox]:checked ~ span::before {
+            border-color: red;
+        }
+        label.chkbox-pseudo input[type=checkbox]:checked ~ span::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0px;
+            margin-top: -6px;
+            width: 12px;
+            height: 12px;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12'><polyline fill='red' points='5.5,9.5 9.5,3.5 8.5,2.5 5.1,7.5 2.5,5.5 1.5,6.5'/></svg>");
+        }
+        label.chkbox-pseudo input[type=checkbox]:disabled ~ span {
+            color: gray;
+        }
+        label.chkbox-pseudo input[type=checkbox]:disabled ~ span::before,
+        label.chkbox-pseudo:hover input[type=checkbox]:disabled ~ span::before {
+            border-color: gray;
+        }
+        label.chkbox-pseudo:hover input[type=checkbox] ~ span::before {
+            border-color: red;
+        }
+    </style>
+</head>
+<body>
+    <h3>With images:</h3>
+    <label class="radio-img">
+        <input type="radio" checked/><span>Checked</span>
+    </label>
+    <label class="radio-img">
+        <input type="radio"/><span>Unchecked</span>
+    </label>
+    <label class="chkbox-img">
+        <input type="checkbox" checked/><span>Checked</span>
+    </label>
+    <label class="chkbox-img">
+        <input type="checkbox"/><span>Unchecked</span>
+    </label>
+    <hr/>
+    <h3>With pseudo-class:</h3>
+    <label class="radio-pseudo">
+        <input type="radio" checked/><span>Checked</span>
+    </label>
+    <label class="radio-pseudo">
+        <input type="radio"/><span>Unchecked</span>
+    </label>
+    <label class="radio-pseudo">
+        <input type="radio" disabled/><span>Disabled</span>
+    </label>
+    <label class="chkbox-pseudo">
+        <input type="checkbox" checked/><span>Checked</span>
+    </label>
+    <label class="chkbox-pseudo">
+        <input type="checkbox"/><span>Unchecked</span>
+    </label>
+    <label class="chkbox-pseudo">
+        <input type="checkbox" disabled/><span>Disabled</span>
+    </label>
+</body>
+</html>
