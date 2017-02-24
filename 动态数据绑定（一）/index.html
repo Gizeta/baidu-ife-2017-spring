@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Document</title>
+</head>
+<body>
+    <textarea style="width:500px;height:300px;">let app1 = new Observer({
+  name: 'youngwind',
+  age: 25
+});
+
+let app2 = new Observer({
+  university: 'bupt',
+  major: 'computer'
+});
+
+// 要实现的结果如下：
+app1.data.name // 你访问了 name
+app1.data.age = 100;  // 你设置了 age，新的值为100
+app2.data.university // 你访问了 university
+app2.data.major = 'science'  // 你设置了 major，新的值为 science</textarea><button>eval一下</button>
+    <script>
+        class Observer {
+            constructor(data) {
+                this.data = new Proxy(data, {
+                    get: (obj, prop) => {
+                        if (prop in obj) alert(`你访问了 ${prop}`);
+                        return obj[prop];
+                    },
+                    set: (obj, prop, value) => {
+                        alert(`设置了 ${prop}，新的值为 ${value}`);
+                        obj[prop] = value;
+                    }
+                });
+            }
+        }
+
+        window.onload = function() {
+            document.querySelector('button').onclick = function() {
+                eval(document.querySelector('textarea').value);
+            }
+        }
+    </script>
+</body>
+</html>
