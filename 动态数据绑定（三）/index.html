@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Document</title>
+</head>
+<body>
+    <textarea style="width:500px;height:300px;">let app2 = new Observer({
+    name: {
+        firstName: 'shaofeng',
+        lastName: 'liang'
+    },
+    age: 25
+});
+
+app2.$watch('name', function (newName) {
+    alert('我的姓名发生了变化，可能是姓氏变了，也可能是名字变了。')
+    alert(JSON.stringify(newName))
+});
+
+app2.data.name.firstName = 'hahaha';
+// 输出：我的姓名发生了变化，可能是姓氏变了，也可能是名字变了。
+app2.data.name.lastName = 'blablabla';
+// 输出：我的姓名发生了变化，可能是姓氏变了，也可能是名字变了。</textarea><button>eval一下</button>
+
+    <script>
+        const $$propWatchHash = Symbol('propWatchHash');
+        const $$parent = Symbol('parent');
+        const $$parentPath = Symbol('parentPath');
+
+        class Observer {
+            constructor(data, parent, parentPath) {
+                this[$$propWatchHash] = {};
+                this[$$parent] = parent;
+                this[$$parentPath] = parentPath;
+
+                // 递归转化
+                for (let key of Object.keys(data)) {
+                    if (typeof data[key] === "object") {
+                        data[key] = new Observer(data[key], this, key);
+                    }
+                }
+                this.data = new Proxy(data, {
+                    get: (obj, prop) => {
+                        if (prop === $$propWatchHash)
+                            return this[$$propWatchHash];
+
+                        console.log(`你访问了 ${prop}`);
+                        if (obj[prop] instanceof Observer)
+                            return obj[prop].data;
+                        else
+                            return obj[prop];
+                    },
+                    set: (obj, prop, value) => {
+                        console.log(`你设置了 ${prop}，新的值为 ${value}`);
+
+                        if (typeof value === "object")
+                            obj[prop] = new Observer(value, this);
+                        else
+                            obj[prop] = value;
+
+                        if (this[$$propWatchHash][prop] != null) {
+                            this[$$propWatchHash][prop](value);
+                        }
+
+                        // 判断上层监听
+                        let parentPath = this[$$parentPath];
+                        let parent = this[$$parent];
+                        while (parent != null) {
+                            if (parent[$$propWatchHash][parentPath] != null) {
+                                parent[$$propWatchHash][parentPath](parent.data[parentPath]);
+                            }
+                            parentPath = parent[$$parentPath];
+                            parent = parent[$$parent];
+                        }
+                    }
+                });
+            }
+
+            $watch(prop, callback) {
+                let path = prop.split('.');
+                let target = this.data;
+                let i = 0;
+                while (i < path.length - 1) {
+                    target = target[path[i]];
+                    i++;
+                }
+                target[$$propWatchHash][path[i]] = callback;
+            }
+        }
+
+        window.onload = () => {
+            document.querySelector('button').onclick = () => {
+                eval(document.querySelector('textarea').value);
+            }
+        }
+    </script>
+</body>
+</html>
