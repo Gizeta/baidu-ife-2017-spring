@@ -5,7 +5,7 @@
     <title>Document</title>
 </head>
 <body>
-    <textarea style="width:500px;height:300px;">let app1 = new Observer({
+    <textarea style="width:500px;height:300px;"> let app1 = new Observer({
          name: 'youngwind',
          age: 25
  });
@@ -21,12 +21,31 @@
 
  app1.data.name.firstName = 'test';
 
+ app1.data.name = {
+         lastName: 'liang',
+         firstName: 'shaofeng',
+         test: {
+                  test: 1
+         }
+ };
+
+ app1.$watch('name.test.test', function(firstName) {
+        alert(`test：${firstName}`);
+ });
+ app1.data.name.test.test = 2;
 </textarea><button>eval一下</button>
     <script>
         const propWatchHash = Symbol('propWatchHash');
 
         class Observer {
             constructor(data) {
+                this[propWatchHash] = {};
+
+                for (let key of Object.keys(data)) {
+                    if (typeof data[key] === "object") {
+                        data[key] = new Observer(data[key], this);
+                    }
+                }
                 this.data = new Proxy(data, {
                     get: (obj, prop) => {
                         if (prop === propWatchHash)
@@ -51,7 +70,6 @@
                             obj[prop] = value;
                     }
                 });
-                this[propWatchHash] = {};
             }
 
             $watch(prop, callback) {
