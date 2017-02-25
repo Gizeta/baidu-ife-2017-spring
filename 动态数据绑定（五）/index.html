@@ -114,73 +114,48 @@ window.app = new Vue({
         {
             // private field keys
             const $$children = Symbol('children');
-            const $$tag = Symbol('tag');
-            const $$attrs = Symbol('attrs');
             const $$data = Symbol('data');
+            const $$dom = Symbol('dom');
             // private method keys
             const $$parse = Symbol('parse');
 
             class SimpleVDOM {
-                constructor(htmlText, data, changedCallback) {
+                constructor(dom, data) {
                     this[$$children] = [];
-                    this[$$attrs] = "";
                     this[$$data] = data;
-                    this[$$parse](htmlText, changedCallback);
+                    this[$$dom] = dom;
+                    this[$$parse](dom);
                 }
 
-                [$$parse](htmlText, changedCallback) {
-                    let nodes = new DOMParser().parseFromString(htmlText, "text/html").body.childNodes;
-
-                    // nothing except whitespace
-                    if (nodes.length === 0) {
-                        this[$$tag] = "TextNode";
-                        this[$$children] = "";
-                        return;
-                    }
-
-                    // pure text or dom
-                    if (nodes.length == 1) {
-                        let node = nodes[0];
-                        // TextNode
-                        if (node.nodeType === 3) {
-                            this[$$tag] = "TextNode";
-                            this[$$children] = node.textContent;
-                            // set listener
-                            let matches = node.textContent.match(/\{\{.+?\}\}/gm);
-                            if (matches == null) return;
-                            for (let vars of matches) {
-                                let v = vars.match(/\{\{(.+)\}\}/)[1];
-                                this[$$data].$watch(v.trim(), () => {
-                                    console.log(`${v.trim()} has changed`);
-                                    changedCallback();
+                [$$parse](dom) {
+                    // pure text
+                    if (dom.nodeType === 3) {
+                        this[$$children] = node.textContent;
+                        // set listener
+                        let matches = node.textContent.match(/\{\{[^(\{\{)|(\}\})]+?\}\}/gm);
+                        if (matches == null) return;
+                        let propSet = new Set();
+                        for (let vars of matches) {
+                            let v = vars.match(/\{\{(.+)\}\}/)[1];
+                            this[$$data].$watch(v.trim(), () => {
+                                console.log(`${v.trim()} has changed`);
+                                this.render();
                                 });
                             }
                         }
-                        // DOM
-                        else {
-                            this[$$tag] = node.nodeName;
-                            this[$$children].push(new SimpleVDOM(node.innerHTML, this[$$data], changedCallback));
-                            let attrs = [''];
-                            for (let a of node.attributes) {
-                                attrs.push(`${a.localName}="${a.value}"`);
-                            }
-                            this[$$attrs] = attrs.join(' ');
-                        }
                         return;
                     }
-
-                    // multiple nodes
-                    for (let node of nodes) {
-                        if (node.nodeType == 3)
-                            this[$$children].push(new SimpleVDOM(node.textContent, this[$$data], changedCallback));
-                        else
-                            this[$$children].push(new SimpleVDOM(node.outerHTML, this[$$data], changedCallback));
+                    // dom
+                    else {
+                        for (let node of dom.childNodes) {
+                            this[$$children].push(new SimpleVDOM(node, this[$$data]));
+                        }
                     }
                 }
-
+        
                 render() {
                     // pure text
-                    if (this[$$tag] == "TextNode") {
+                    if (this[$$dom].nodeType === 3) {
                         // data helper
                         let dataHelper = (prop) => {
                             let paths = prop.split('.');
@@ -201,21 +176,11 @@ window.app = new Vue({
                         }
                         return result;
                     }
-                    // container
-                    else if (this[$$tag] == null) {
-                        let result = "";
-                        for (let child of this[$$children]) {
-                            result += child.render();
-                        }
-                        return result;
-                    }
                     // dom
                     else {
-                        let result = "";
                         for (let child of this[$$children]) {
-                            result += child.render();
+                            child.render();
                         }
-                        return `<${this[$$tag]}${this[$$attrs]}>${result}</${this[$$tag]}>`;
                     }
                 }
             }
@@ -231,9 +196,7 @@ window.app = new Vue({
             
             // private field keys
             const $$vdom = Symbol('vdom');
-            const $$target = Symbol('target');
-            const $$data = Symbol('data');
-
+            
             class Vue {
                 constructor(options) {
                     if (options == null)
@@ -247,22 +210,13 @@ window.app = new Vue({
                     if (typeof options.data !== "object")
                         throw(new Error('data should be an object'));
                     
-                    this[$$target] = document.querySelector(options.el);
-                    if (this[$$target] == null)
+                    let target = document.querySelector(options.el);
+                    if (target == null)
                         throw(new Error('element not exist'));
                     
-                    this[$$data] = new Observer(options.data);
-                    this.data = this[$$data].data;
-                    this[$$vdom] = new SimpleVDom(this[$$target].innerHTML, this[$$data], () => {
-                        console.log('begin to rerender');
-                        this.render();
-                    });
-
-                    this.render();
-                }
-
-                render() {
-                    this[$$target].innerHTML = this[$$vdom].render();
+                    let obs = new Observer(options.data);
+                    this.data = obs.data;
+                    this[$$vdom] = new SimpleVDom(target, obs);
                 }
             }
             // export to global
