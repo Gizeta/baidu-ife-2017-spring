@@ -7,7 +7,7 @@
 <body>
     <textarea id="t1" style="width:500px;height:300px;">
 <div id="app">
-    <p style="color:red">姓名：{{user.name}}</p>
+    <p style="color:red">姓名：{{{ user.name  }}}</p>
     <p>年龄：{{user.age}}</p>
 </div>
     </textarea>
@@ -130,18 +130,21 @@ window.app = new Vue({
                 [$$parse](dom) {
                     // pure text
                     if (dom.nodeType === 3) {
-                        this[$$children] = node.textContent;
+                        this[$$children] = dom.textContent;
                         // set listener
-                        let matches = node.textContent.match(/\{\{[^(\{\{)|(\}\})]+?\}\}/gm);
+                        let matches = dom.textContent.match(/\{\{[^(\{\{)|(\}\})]+?\}\}/gm);
                         if (matches == null) return;
-                        let propSet = new Set();
+                        let paths = [];
                         for (let vars of matches) {
-                            let v = vars.match(/\{\{(.+)\}\}/)[1];
-                            this[$$data].$watch(v.trim(), () => {
-                                console.log(`${v.trim()} has changed`);
+                            let v = vars.match(/\{\{(.+)\}\}/)[1].trim();
+                            this[$$children] = this[$$children].replace(vars, `{{${v}}}`);
+
+                            if (paths.includes(v)) continue;
+                            paths.push(v);
+                            this[$$data].$watch(v, () => {
+                                console.log(`begin to rerender ${v}`);
                                 this.render();
-                                });
-                            }
+                            });
                         }
                         return;
                     }
@@ -168,13 +171,13 @@ window.app = new Vue({
 
                         let result = this[$$children];
 
-                        let matches = result.match(/\{\{(.+?)\}\}/gm);
+                        let matches = result.match(/\{\{[^(\{\{)|(\}\})]+?\}\}/gm);
                         if (matches == null) return result;
                         for (let vars of matches) {
-                            let v = vars.match(/\{\{(.+)\}\}/)[1];
-                            result = result.replace(`${vars}`, dataHelper(v.trim()));
+                            let v = vars.match(/\{\{([^(\{\{)|(\}\})]+?)\}\}/)[1];
+                            result = result.replace(new RegExp(vars, 'g'), dataHelper(v));
                         }
-                        return result;
+                        this[$$dom].textContent = result;
                     }
                     // dom
                     else {
@@ -217,6 +220,7 @@ window.app = new Vue({
                     let obs = new Observer(options.data);
                     this.data = obs.data;
                     this[$$vdom] = new SimpleVDom(target, obs);
+                    this[$$vdom].render();
                 }
             }
             // export to global
