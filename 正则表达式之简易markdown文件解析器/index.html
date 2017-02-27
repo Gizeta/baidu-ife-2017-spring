@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Document</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+        }
+        html, body {
+            height: 100%;
+        }
+        #origin {
+            display: inline-block;
+            width: 49.5%;
+            height: 100%;
+            box-sizing: border-box;
+        }
+        #converted {
+            display: inline-block;
+            width: 49.5%;
+            height: 100%;
+            box-sizing: border-box;
+            vertical-align: top;
+        }
+
+        pre {
+            display: inline-block;
+            padding: .2rem .5rem;
+            margin: 0 .2rem;
+            background: #f1f1f1;
+            border: 1px solid #e1e1e1;
+            border-radius: 4px;
+            white-space: pre;
+        }
+
+        blockquote {
+            border-left: 5px solid #ccc;
+            margin: 1.5em 10px;
+            padding: 0.5em 10px;
+        }
+
+        ul, ol {
+            padding-left: 20px;
+        }
+    </style>
+</head>
+<body>
+    <textarea id="origin">
+# h1
+another h1
+===
+## h2
+another h2
+---
+### h3
+#### h4
+##### _h5_
+###### *h6*
+
+[**link** __to__ baidu](http://www.baidu.com/_not_convert_this_) ![baidu](http://ife.baidu.com/2017/asset/common/img/logo_a3b4064.png)
+
+---
+
+```
+line *1*
+
+line _3_
+```
+
+> 1_2_
+> 3*4*
+
+> __56__
+
+* 1
+* 2
+
+1. 1
+ 1. `1`
+ 2. 2
+2. `2`
+    </textarea>
+    <div id="converted"></div>
+    <script>
+        function md2html(mdText) {
+            let lines = mdText.split("\n");
+            let reader = {
+                idx: 0,
+                saved: 0,
+                length: lines.length,
+                read: function() {
+                    if (this.eof()) return;
+                    return lines[this.idx++];
+                },
+                peek: function() {
+                    return lines[this.idx];
+                },
+                eof: function() {
+                    return this.idx >= this.length;
+                },
+                save: function() {
+                    this.save = this.idx;
+                },
+                reset: function() {
+                    this.idx = this.save;
+                }
+            };
+            let htmlText = "";
+
+            let inlineRules = {
+                // bold
+                '(\\[.*?)\\*\\*([^\\*]+)\\*\\*(.*?\\]\\(.+?\\))|(?:\\*\\*([^\\*]+)\\*\\*)': function($0, $1, $2, $3, $4) {
+                    return $4 == null ? ($1 + "<strong>" + $2 + "</strong>" + $3) : "<strong>" + $4 + "</strong>";
+                },
+                '(\\[.*?)__([^_]+)__(.*?\\]\\(.+?\\))|(?:__([^_]+)__)': function($0, $1, $2, $3, $4) {
+                    return $4 == null ? ($1 + "<strong>" + $2 + "</strong>" + $3) : "<strong>" + $4 + "</strong>";
+                },
+                // italic
+                '(\\[.*?)\\*([^\\*]+)\\*(.*?\\]\\(.+?\\))|(?:\\*([^\\*]+)\\*)': function($0, $1, $2, $3, $4) {
+                    return $4 == null ? ($1 + "<em>" + $2 + "</em>" + $3) : "<em>" + $4 + "</em>";
+                },
+                '(\\[.*?)_([^_]+)_(.*?\\]\\(.+?\\))|(?:_([^_]+)_)': function($0, $1, $2, $3, $4) {
+                    return $4 == null ? ($1 + "<em>" + $2 + "</em>" + $3) : "<em>" + $4 + "</em>";
+                },
+                // backtick
+                '(\\[.*?)`([^`]+)`(.*?\\]\\(.+?\\))|(?:`([^`]+)`)': function($0, $1, $2, $3, $4) {
+                    return $4 == null ? ($1 + "<pre>" + $2 + "</pre>" + $3) : "<pre>" + $4 + "</pre>";
+                },
+                // image
+                '!\\[([^\\[\\]]+?)\\]\\(([^\\(\\)]+?)\\)': '<img src="$2" alt="$1"></img>',
+                // link
+                '\\[([^\\[\\]]+?)\\]\\(([^\\(\\)]+?)\\)': '<a href="$2" target="_blank">$1</a>',
+            };
+
+            let titleRules = {
+                '^# *([^#].+)$': '<h1>$1</h1>',
+                '^## *([^#].+)$': '<h2>$1</h2>',
+                '^### *([^#].+)$': '<h3>$1</h3>',
+                '^#### *([^#].+)$': '<h4>$1</h4>',
+                '^##### *([^#].+)$': '<h5>$1</h5>',
+                '^###### *([^#].+)$': '<h6>$1</h6>'
+            };
+
+            while (!reader.eof()) {
+                let line = reader.read();
+                let converted = line;
+
+                // code
+                if (line.match(/```.*$/)) {
+                    reader.save();
+
+                    converted = "";
+                    while (!reader.eof() && reader.peek() != "```") {
+                        converted += reader.read() + "\n";
+                    }
+
+                    // fail to match code rule
+                    if (reader.eof()) {
+                        reader.reset();
+                        htmlText += "```\n";
+                        continue;
+                    }
+                    // matched
+                    else {
+                        reader.read();
+                        htmlText += "<div><pre>" + converted + "</pre></div>\n";
+                        continue;
+                    }
+                }
+
+                // hr
+                if (line === "---" || line === "***") {
+                    htmlText += "<hr />";
+                    continue;
+                }
+
+                // kill empty lines
+                if (line === "") {
+                    while (reader.peek() === "" && !reader.eof()) {
+                        reader.read();
+                    }
+                    htmlText += "\n";
+                    continue;
+                }
+
+                // title
+                let hasTitle = false;
+                for (let rule of Object.keys(titleRules)) {
+                    let matches = converted.match(new RegExp(rule));
+                    if (matches == null) continue;
+                    for (let match of matches) {
+                        converted = converted.replace(match, match.replace(new RegExp(rule), titleRules[rule]));
+                    }
+                    hasTitle = true;
+                }
+
+                // quote
+                let quoteReg = /^ *> *(.+?)$/;
+                if (line.match(quoteReg)) {
+                    let str = line.match(quoteReg)[1];
+                    converted = str;
+
+                    while (!reader.eof() && reader.peek().match(quoteReg)) {
+                        let s = reader.read();
+                        converted += " " + s.match(quoteReg)[1];
+                    }
+
+                    converted = "<blockquote>" + converted + "</blockquote>";
+                }
+
+                // ul
+                let ulReg = /^( *)\* *(.+?)$/;
+                if (line.match(ulReg)) {
+                    function parseUl(space, firstText) {
+                        let ret = firstText ? ("<li>" + firstText.match(ulReg)[2] + "</li>") : "";
+                        while (!reader.eof() && reader.peek().match(ulReg)) {
+                            let s = reader.peek();
+                            let l = s.match(ulReg)[1].length;
+                            // sub list
+                            if (l > space) {
+                                ret += parseUl(l);
+                            } else if (l == space) {
+                                ret += "<li>" + s.match(ulReg)[2] + "</li>";
+                                reader.read();
+                            } else {
+                                break;
+                            }
+                        }
+                        return "<ul>" + ret + "</ul>";
+                    }
+
+                    converted = parseUl(line.match(ulReg)[1].length, line);
+                }
+
+                // ol
+                let olReg = /^( *)\d+\. *(.+?)$/;
+                if (line.match(olReg)) {
+                    function parseOl(space, firstText) {
+                        let ret = firstText ? ("<li>" + firstText.match(olReg)[2] + "</li>") : "";
+                        while (!reader.eof() && reader.peek().match(olReg)) {
+                            let s = reader.peek();
+                            let l = s.match(olReg)[1].length;
+                            // sub list
+                            if (l > space) {
+                                ret += parseOl(l);
+                            } else if (l == space) {
+                                ret += "<li>" + s.match(olReg)[2] + "</li>";
+                                reader.read();
+                            } else {
+                                break;
+                            }
+                        }
+                        return "<ol>" + ret + "</ol>";
+                    }
+
+                    converted = parseOl(line.match(olReg)[1].length, line);
+                }
+
+                // bold + italic + backtick + image + link
+                for (let rule of Object.keys(inlineRules)) {
+                    let matches = converted.match(new RegExp(rule, 'g'));
+                    if (matches == null) continue;
+                    for (let match of matches) {
+                        converted = converted.replace(match, match.replace(new RegExp(rule), inlineRules[rule]));
+                    }
+                }
+
+                // another title rule
+                if (!hasTitle) {
+                    if (reader.peek() === "===") {
+                        reader.read();
+                        converted = "<h1>" + converted + "</h1>";
+                    } else if (reader.peek() === "---") {
+                        reader.read();
+                        converted = "<h2>" + converted + "</h2>";
+                    }
+                } 
+
+                htmlText += converted + "\n";
+            }
+            
+            return htmlText;
+        }
+
+        document.querySelector('#origin').onkeyup = function() {
+            document.querySelector('#converted').innerHTML = md2html(document.querySelector('#origin').value);
+        };
+
+        document.querySelector('#origin').onkeyup();
+    </script>
+</body>
+</html>
