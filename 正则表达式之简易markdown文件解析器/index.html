@@ -23,6 +23,7 @@
             height: 100%;
             box-sizing: border-box;
             vertical-align: top;
+            overflow-y: auto;
         }
 
         pre {
@@ -58,8 +59,10 @@ another h2
 #### h4
 ##### _h5_
 ###### *h6*
-
+1234567890
 [**link** __to__ baidu](http://www.baidu.com/_not_convert_this_) ![baidu](http://ife.baidu.com/2017/asset/common/img/logo_a3b4064.png)
+
+abcdefg
 
 ---
 
@@ -135,17 +138,23 @@ line _3_
             };
 
             let titleRules = {
-                '^# *([^#].+)$': '<h1>$1</h1>',
-                '^## *([^#].+)$': '<h2>$1</h2>',
-                '^### *([^#].+)$': '<h3>$1</h3>',
-                '^#### *([^#].+)$': '<h4>$1</h4>',
-                '^##### *([^#].+)$': '<h5>$1</h5>',
-                '^###### *([^#].+)$': '<h6>$1</h6>'
+                '^# *([^#].+)$': '<h1>$1</h1>\n',
+                '^## *([^#].+)$': '<h2>$1</h2>\n',
+                '^### *([^#].+)$': '<h3>$1</h3>\n',
+                '^#### *([^#].+)$': '<h4>$1</h4>\n',
+                '^##### *([^#].+)$': '<h5>$1</h5>\n',
+                '^###### *([^#].+)$': '<h6>$1</h6>\n'
             };
 
             while (!reader.eof()) {
                 let line = reader.read();
                 let converted = line;
+
+                // empty lines
+                if (line === "") {
+                    htmlText += "\n";
+                    continue;
+                }
 
                 // code
                 if (line.match(/```.*$/)) {
@@ -159,7 +168,8 @@ line _3_
                     // fail to match code rule
                     if (reader.eof()) {
                         reader.reset();
-                        htmlText += "```\n";
+                        line = "```";
+                        converted = line;
                         continue;
                     }
                     // matched
@@ -171,17 +181,8 @@ line _3_
                 }
 
                 // hr
-                if (line === "---" || line === "***") {
-                    htmlText += "<hr />";
-                    continue;
-                }
-
-                // kill empty lines
-                if (line === "") {
-                    while (reader.peek() === "" && !reader.eof()) {
-                        reader.read();
-                    }
-                    htmlText += "\n";
+                if (line.match(/^-{3,}$/) || line.match(/^\*{3,}$/)) {
+                    htmlText += "<hr></hr>\n";
                     continue;
                 }
 
@@ -197,21 +198,21 @@ line _3_
                 }
 
                 // quote
-                let quoteReg = /^ *> *(.+?)$/;
+                let quoteReg = /^ *> +(.+?)$/;
                 if (line.match(quoteReg)) {
                     let str = line.match(quoteReg)[1];
                     converted = str;
 
                     while (!reader.eof() && reader.peek().match(quoteReg)) {
                         let s = reader.read();
-                        converted += " " + s.match(quoteReg)[1];
+                        converted += "<br/>" + s.match(quoteReg)[1];
                     }
 
                     converted = "<blockquote>" + converted + "</blockquote>";
                 }
 
                 // ul
-                let ulReg = /^( *)\* *(.+?)$/;
+                let ulReg = /^( *)\* +(.+?)$/;
                 if (line.match(ulReg)) {
                     function parseUl(space, firstText) {
                         let ret = firstText ? ("<li>" + firstText.match(ulReg)[2] + "</li>") : "";
@@ -235,7 +236,7 @@ line _3_
                 }
 
                 // ol
-                let olReg = /^( *)\d+\. *(.+?)$/;
+                let olReg = /^( *)\d+\. +(.+?)$/;
                 if (line.match(olReg)) {
                     function parseOl(space, firstText) {
                         let ret = firstText ? ("<li>" + firstText.match(olReg)[2] + "</li>") : "";
@@ -271,17 +272,39 @@ line _3_
                 if (!hasTitle) {
                     if (reader.peek() === "===") {
                         reader.read();
-                        converted = "<h1>" + converted + "</h1>";
+                        converted = "<h1>" + converted + "</h1>\n";
                     } else if (reader.peek() === "---") {
                         reader.read();
-                        converted = "<h2>" + converted + "</h2>";
+                        converted = "<h2>" + converted + "</h2>\n";
                     }
                 } 
 
                 htmlText += converted + "\n";
             }
+
+            // paragraph & less crlf
+            let htmlLines = htmlText.split("\n\n");
+            let ignoreCode = false;
+            let ln_idx = -1;
+            for (let line of htmlLines) {
+                ln_idx++;
+                if (ignoreCode) {
+                    if (/<\/pre><\/div>$/.test(line)) ignoreCode = false;
+                    continue;
+                }
+                if (/^<div><pre>/.test(line)) {
+                    ignoreCode = true;
+                } else if (/^<((?:h\d)|(?:hr)|(?:ul)|(?:ol)|(?:blockquote))>.*<\/\1>/.test(line)) {
+                    continue;
+                } else if (line.trim() === "") {
+                    continue;
+                }
+                else {
+                    htmlLines[ln_idx] = "<p>" + htmlLines[ln_idx] + "</p>";
+                }
+            }
             
-            return htmlText;
+            return htmlLines.join('\n');
         }
 
         document.querySelector('#origin').onkeyup = function() {
