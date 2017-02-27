@@ -77,12 +77,9 @@ line _3_
 
 > __56__
 
-* 1
-* 2
-
 1. 1
- 1. `1`
- 2. 2
+ * `1`
+ * 2
 2. `2`
     </textarea>
     <div id="converted"></div>
@@ -157,7 +154,7 @@ line _3_
                 }
 
                 // code
-                if (line.match(/```.*$/)) {
+                if (/```.*$/.test(line)) {
                     reader.save();
 
                     converted = "";
@@ -181,7 +178,7 @@ line _3_
                 }
 
                 // hr
-                if (line.match(/^-{3,}$/) || line.match(/^\*{3,}$/)) {
+                if (/^-{3,}$/.test(line) || /^\*{3,}$/.test(line)) {
                     htmlText += "<hr></hr>\n";
                     continue;
                 }
@@ -199,11 +196,11 @@ line _3_
 
                 // quote
                 let quoteReg = /^ *> +(.+?)$/;
-                if (line.match(quoteReg)) {
+                if (quoteReg.test(line)) {
                     let str = line.match(quoteReg)[1];
                     converted = str;
 
-                    while (!reader.eof() && reader.peek().match(quoteReg)) {
+                    while (!reader.eof() && quoteReg.test(reader.peek())) {
                         let s = reader.read();
                         converted += " " + s.match(quoteReg)[1];
                     }
@@ -211,52 +208,46 @@ line _3_
                     converted = "<blockquote>" + converted + "</blockquote>";
                 }
 
-                // ul
-                let ulReg = /^( *)\* +(.+?)$/;
-                if (line.match(ulReg)) {
-                    function parseUl(space, firstText) {
-                        let ret = firstText ? ("<li>" + firstText.match(ulReg)[2] + "</li>") : "";
-                        while (!reader.eof() && reader.peek().match(ulReg)) {
+                // ul + ol
+                let listReg = [
+                    // ul
+                    /^( *)\* +(.+?)$/,
+                    // ol
+                    /^( *)\d+\. +(.+?)$/
+                ]
+                if (listReg[0].test(line) || listReg[1].test(line)) {
+                    function parseList(r, space, firstText) {
+                        let ret = firstText ? ("<li>" + firstText.match(listReg[r])[2] + "</li>") : "";
+                        while (!reader.eof()) {
                             let s = reader.peek();
-                            let l = s.match(ulReg)[1].length;
+                            let reverse = false;
+                            if (!listReg[r].test(s)) {
+                                if (listReg[(r + 1) % 2].test(s)) {
+                                    reverse = true;
+                                } else {
+                                    break;
+                                }
+                            }
+                            let l = s.match(listReg[(r + (reverse ? 1 : 0)) % 2])[1].length;
                             // sub list
                             if (l > space) {
-                                ret += parseUl(l);
+                                ret += parseList(reverse ? (r + 1) % 2 : r, l);
                             } else if (l == space) {
-                                ret += "<li>" + s.match(ulReg)[2] + "</li>";
-                                reader.read();
+                                if (reverse) {
+                                    ret += parseList(reverse ? (r + 1) % 2 : r, l);
+                                } else {
+                                    ret += "<li>" + s.match(listReg[r])[2] + "</li>";
+                                    reader.read();
+                                }
                             } else {
                                 break;
                             }
                         }
-                        return "<ul>" + ret + "</ul>";
+                        return "<" + (r === 0 ? 'u' : 'o') + "l>" + ret + "</" + (r === 0 ? 'u' : 'o') + "l>";
                     }
 
-                    converted = parseUl(line.match(ulReg)[1].length, line);
-                }
-
-                // ol
-                let olReg = /^( *)\d+\. +(.+?)$/;
-                if (line.match(olReg)) {
-                    function parseOl(space, firstText) {
-                        let ret = firstText ? ("<li>" + firstText.match(olReg)[2] + "</li>") : "";
-                        while (!reader.eof() && reader.peek().match(olReg)) {
-                            let s = reader.peek();
-                            let l = s.match(olReg)[1].length;
-                            // sub list
-                            if (l > space) {
-                                ret += parseOl(l);
-                            } else if (l == space) {
-                                ret += "<li>" + s.match(olReg)[2] + "</li>";
-                                reader.read();
-                            } else {
-                                break;
-                            }
-                        }
-                        return "<ol>" + ret + "</ol>";
-                    }
-
-                    converted = parseOl(line.match(olReg)[1].length, line);
+                    let r = listReg[0].test(line) ? 0 : 1;
+                    converted = parseList(r, line.match(listReg[r])[1].length, line);
                 }
 
                 // bold + italic + backtick + image + link
