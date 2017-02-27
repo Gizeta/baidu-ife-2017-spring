@@ -205,7 +205,7 @@ line _3_
 
                     while (!reader.eof() && reader.peek().match(quoteReg)) {
                         let s = reader.read();
-                        converted += "<br/>" + s.match(quoteReg)[1];
+                        converted += " " + s.match(quoteReg)[1];
                     }
 
                     converted = "<blockquote>" + converted + "</blockquote>";
