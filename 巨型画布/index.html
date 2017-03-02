@@ -32,11 +32,13 @@
         let ctx = canvas.getContext("2d");
         let isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
 
+        let bufCanvas = document.createElement("canvas");
+        let bufCtx = bufCanvas.getContext('2d');
+
         let scope = {
             x: 0,
             y: 0,
             img: null,
-            lines: [],
             move: false,
             draw: false,
             animationId: null,
@@ -47,7 +49,14 @@
             lastMouseY: 0,
             lastX: 0,
             lastY: 0,
-        }
+        };
+
+        const ThumbnailWidth = 180;
+        const ThumbnailHeight = 144;
+        const ThumbnailBorderThickness = 2;
+        const ThumbnailWithBorderWidth = ThumbnailWidth + ThumbnailBorderThickness;
+        const ThumbnailWithBotderHeight = ThumbnailHeight + ThumbnailBorderThickness;
+        let cachedVar = {};
 
         function canMove() {
             canvas.style.cursor = isFirefox ? "grab" : "move";
@@ -62,7 +71,7 @@
         }
 
         function clearPath() {
-            scope.lines = [];
+            drawBuffer();
         }
 
         function gen() {
@@ -114,55 +123,56 @@
 
             img.onload = function() {
                 scope.img = img;
-                clearPath();
+
+                bufCanvas.width = img.width;
+                bufCanvas.height = img.height;
+
+                cacheSomeVar();
+                drawBuffer();
                 draw();
             }
+        }
+
+        function cacheSomeVar() {
+            cachedVar.thumbnailX = canvas.width - ThumbnailWidth;
+            cachedVar.thumbnailY = canvas.height - ThumbnailHeight;
+            
+            cachedVar.thumbnailBorderX = canvas.width - ThumbnailWithBorderWidth;
+            cachedVar.thumbnailBorderY = canvas.height - ThumbnailWithBotderHeight;
+
+            cachedVar.thumbnailWidthScale = ThumbnailWidth / scope.img.width;
+            cachedVar.thumbnailHeightScale = ThumbnailHeight / scope.img.height;
+
+            cachedVar.thumbnailAreaWidth = cachedVar.thumbnailWidthScale * canvas.width;
+            cachedVar.thumbnailAreaHeight = cachedVar.thumbnailHeightScale * canvas.height;
+
+            cachedVar.halfCanvasWidth = canvas.width / 2;
+            cachedVar.halfCanvasHeight = canvas.height / 2;
+
+            cachedVar.maxPosX = scope.img.width - canvas.width;
+            cachedVar.maxPosY = scope.img.height - canvas.height;
+
+            cachedVar.canvasToScreenWidthRatio = canvas.width / window.screen.width;
+            cachedVar.canvasToScreenHeightRatio = canvas.height / window.screen.height;
+        }
+
+        function drawBuffer() {
+            bufCtx.clearRect(0, 0, bufCanvas.width, bufCanvas.height);
+            bufCtx.drawImage(scope.img, 0, 0);
         }
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             scope.animationId = null;
 
-            ctx.drawImage(scope.img, scope.x, scope.y, canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);            
-
-            ctx.beginPath();
-            // draw lines
-            for (let line of scope.lines) {
-                if (line.length > 4) {
-                    let i = 0;
-                    let offsetX = line[i++] - scope.x;
-                    let offsetY = line[i++] - scope.y;
-                    ctx.moveTo(offsetX + line[i++], offsetY + line[i++]);
-                    while (line[i] != null) {
-                        ctx.lineTo(offsetX + line[i++], offsetY + line[i++]);
-                    }
-                }
-            }
-            ctx.stroke();
-            ctx.closePath();
+            ctx.drawImage(bufCanvas, scope.x, scope.y, canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);            
 
             // thumbnail
             ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-            ctx.fillRect(canvas.width - 182, canvas.height - 146, 182, 146);
-            ctx.drawImage(scope.img, 0, 0, scope.img.width, scope.img.height, canvas.width - 180, canvas.height - 144, 180, 144);
+            ctx.fillRect(cachedVar.thumbnailBorderX, cachedVar.thumbnailBorderY, ThumbnailWithBorderWidth, ThumbnailWithBotderHeight);
+            ctx.drawImage(bufCanvas, 0, 0, scope.img.width, scope.img.height, cachedVar.thumbnailX, cachedVar.thumbnailY, ThumbnailWidth, ThumbnailHeight);
             ctx.strokeStyle = 'black';
-            ctx.strokeRect(canvas.width - 180 + scope.x * 180 / scope.img.width, canvas.height - 144 + scope.y * 144 / scope.img.height, 180 * canvas.width / scope.img.width, 144 * canvas.height / scope.img.height);
-
-            // draw line in thumbnail
-            ctx.beginPath();
-            for (let line of scope.lines) {
-                if (line.length > 4) {
-                    let i = 0;
-                    let offsetX = line[i++];
-                    let offsetY = line[i++];
-                    ctx.moveTo(canvas.width - 180 + 180 * (offsetX + line[i++]) / scope.img.width, canvas.height - 144 + 144 * (offsetY + line[i++]) / scope.img.height);
-                    while (line[i] != null) {
-                        ctx.lineTo(canvas.width - 180 + 180 * (offsetX + line[i++]) / scope.img.width, canvas.height - 144 + 144 * (offsetY + line[i++]) / scope.img.height);
-                    }
-                }
-            }
-            ctx.stroke();
-            ctx.closePath();
+            ctx.strokeRect(cachedVar.thumbnailX + scope.x * cachedVar.thumbnailWidthScale, cachedVar.thumbnailY + scope.y * cachedVar.thumbnailHeightScale, cachedVar.thumbnailAreaWidth, cachedVar.thumbnailAreaHeight);
 
             scope.animationId = requestAnimationFrame(draw);
         }
@@ -177,21 +187,21 @@
 
             if (scope.move) {
                 // click thumbnail
-                if (posX > canvas.width - 180 && posY > canvas.height - 144) {
+                if (posX > cachedVar.thumbnailX && posY > cachedVar.thumbnailY) {
                     scope.thumbDrag = true;
                     scope.picDrag = false;
                     
                     // jump
                     if (scope.move) {
-                        posX -= canvas.width - 180;
-                        posY -= canvas.height - 144;
-                        scope.x = posX / 180 * scope.img.width - canvas.width / 2;
-                        scope.y = posY / 144 * scope.img.height - canvas.height / 2;
+                        posX -= cachedVar.thumbnailX;
+                        posY -= cachedVar.thumbnailY;
+                        scope.x = posX / cachedVar.thumbnailWidthScale - cachedVar.halfCanvasWidth;
+                        scope.y = posY / cachedVar.thumbnailHeightScale - cachedVar.halfCanvasHeight;
 
                         if (scope.x < 0) scope.x = 0;
-                        if (scope.x > scope.img.width - canvas.width) scope.x = scope.img.width - canvas.width;
+                        if (scope.x > cachedVar.maxPosX) scope.x = cachedVar.maxPosX;
                         if (scope.y < 0) scope.y = 0;
-                        if (scope.y > scope.img.height - canvas.height) scope.y = scope.img.height - canvas.height;
+                        if (scope.y > cachedVar.maxPosY) scope.y = cachedVar.maxPosY;
                     }
                 } else {
                     scope.picDrag = true;
@@ -203,9 +213,8 @@
                     scope.lastY = scope.y;
                 }
             } else if (scope.draw) {
-                scope.lines.push([])
-                scope.lines[scope.lines.length - 1].push(scope.x, scope.y);
-                scope.lines[scope.lines.length - 1].push(posX, posY);
+                bufCtx.beginPath();
+                bufCtx.moveTo(scope.x + posX, scope.y + posY);
             }
         };
         canvas.onmousemove = function(e) {
@@ -213,37 +222,41 @@
 
             if (scope.move) {
                 if (scope.picDrag) {
-                    let offsetX = -canvas.width * (e.clientX - scope.lastMouseX) / window.screen.width;
-                    let offsetY = -canvas.height * (e.clientY - scope.lastMouseY) / window.screen.height;
+                    let offsetX = -(e.clientX - scope.lastMouseX) * cachedVar.canvasToScreenWidthRatio;
+                    let offsetY = -(e.clientY - scope.lastMouseY) * cachedVar.canvasToScreenHeightRatio;
 
-                    if (scope.lastX + offsetX >= 0 && scope.lastX + offsetX <= scope.img.width - canvas.width) {
+                    if (scope.lastX + offsetX >= 0 && scope.lastX + offsetX <= cachedVar.maxPosX) {
                         scope.x = scope.lastX + offsetX;
                     }
-                    if (scope.lastY + offsetY >= 0 && scope.lastY + offsetY <= scope.img.height - canvas.height) {
+                    if (scope.lastY + offsetY >= 0 && scope.lastY + offsetY <= cachedVar.maxPosY) {
                         scope.y = scope.lastY + offsetY;
                     }
                 } else if (scope.thumbDrag) {
-                    let posX = e.clientX - canvas.offsetLeft - (canvas.width - 180);
-                    let posY = e.clientY - canvas.offsetTop - (canvas.height - 144);
+                    let posX = e.clientX - canvas.offsetLeft - cachedVar.thumbnailX;
+                    let posY = e.clientY - canvas.offsetTop - cachedVar.thumbnailY;
 
-                    scope.x = posX / 180 * scope.img.width - canvas.width / 2;
-                    scope.y = posY / 144 * scope.img.height - canvas.height / 2;
+                    scope.x = posX / cachedVar.thumbnailWidthScale - cachedVar.halfCanvasWidth;
+                    scope.y = posY / cachedVar.thumbnailHeightScale - cachedVar.halfCanvasHeight;
 
                     if (scope.x < 0) scope.x = 0;
-                    if (scope.x > scope.img.width - canvas.width) scope.x = scope.img.width - canvas.width;
+                    if (scope.x > cachedVar.maxPosX) scope.x = cachedVar.maxPosX;
                     if (scope.y < 0) scope.y = 0;
-                    if (scope.y > scope.img.height - canvas.height) scope.y = scope.img.height - canvas.height;
+                    if (scope.y > cachedVar.maxPosY) scope.y = cachedVar.maxPosY;
                 }
             } else if (scope.draw) {
                 let posX = e.clientX - canvas.offsetLeft;
                 let posY = e.clientY - canvas.offsetTop;
-                scope.lines[scope.lines.length - 1].push(posX, posY);
+                bufCtx.lineTo(scope.x + posX, scope.y + posY);
+                bufCtx.stroke();
             }
         };
         canvas.onmouseup = function(e) {
             scope.trigger = false;
             if (canvas.releaseCapture)
                 canvas.releaseCapture();
+            if (scope.draw) {
+                bufCtx.closePath();
+            }
         };
         if (!canvas.setCapture) {
             canvas.onmouseleave = function(e) {
